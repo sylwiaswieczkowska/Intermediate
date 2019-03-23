@@ -5,8 +5,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -14,6 +13,9 @@ public class InMemoryCategoryDAO {
 
     private List<Category> categoryList = new ArrayList<>();
 
+    public InMemoryCategoryDAO(){
+        initializeCategories();
+    }
     private List<String> loadCategoriesFromFile() {
         ClassLoader classLoader = this.getClass().getClassLoader();
         URI uri = null;
@@ -38,5 +40,51 @@ public class InMemoryCategoryDAO {
                     return category;
                 })
                 .collect(Collectors.toList());
+
+
+        populateCategoriesMap(categories);
+    }
+
+    private void populateCategoriesMap(List<Category> categories) {
+        Map<Integer, List<Category>> categoriesMap = new HashMap<>();
+        categories.stream()
+                .collect(Collectors.groupingBy(
+                        c -> calculateDepth(c.getCategoryName())));
+
+      /*  for (Category category : categories) {
+            Integer depth = calculateDepth(category.getCategoryName());
+            if (categoriesMap.containsKey(depth)) {
+                categoriesMap.get(depth).add(category);
+            }else {
+                List<Category> depthCategory = new ArrayList<>();
+                depthCategory.add(category);
+                categoriesMap.put(depth,depthCategory);
+            }
+        }*/
+        populateParentId(categoriesMap, 0);
+        categoryList = categories;
+    }
+
+    private void populateParentId(Map<Integer, List<Category>> categoriesMap, int depth) {
+        List<Category> children = categoriesMap.get(depth);
+        children.stream()
+                .forEach(c -> {
+                    List<Category> potencialParents = categoriesMap.get(depth - 1);
+                    Integer parentId = potencialParents.stream()
+                            .map(Category::getId)
+                            .filter(id -> id < c.getId())
+                            .sorted((a, b) -> b - a)//sortujemy i odwracamy kolejnosc
+                            .findFirst()
+                            .orElse(null);
+                    c.setParentId(parentId);
+                });
+        if (categoriesMap.containsKey(depth + 1)) {
+            populateParentId(categoriesMap, depth + 1);
+        }
+    }
+
+    private Integer calculateDepth(String categoryName) {
+        return categoryName.split("\\S+")[0].length();
     }
 }
+
