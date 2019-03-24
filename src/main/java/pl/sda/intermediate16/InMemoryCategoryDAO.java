@@ -1,8 +1,12 @@
 package pl.sda.intermediate16;
 
+import lombok.Getter;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -11,17 +15,19 @@ import java.util.stream.Collectors;
 
 public class InMemoryCategoryDAO {
 
+    @Getter
     private List<Category> categoryList = new ArrayList<>();
 
-    public InMemoryCategoryDAO(){
+    public InMemoryCategoryDAO() {
         initializeCategories();
     }
+
     private List<String> loadCategoriesFromFile() {
         ClassLoader classLoader = this.getClass().getClassLoader();
         URI uri = null;
         try {
             uri = classLoader.getResource("kategorie.txt").toURI();
-            List<String> lines = Files.readAllLines(Paths.get(uri));
+            List<String> lines = Files.readAllLines(Paths.get(uri), StandardCharsets.UTF_16LE);
             return lines;
         } catch (IOException | URISyntaxException e) {
             e.printStackTrace();
@@ -41,12 +47,7 @@ public class InMemoryCategoryDAO {
                 })
                 .collect(Collectors.toList());
 
-
-        populateCategoriesMap(categories);
-    }
-
-    private void populateCategoriesMap(List<Category> categories) {
-        Map<Integer, List<Category>> categoriesMap = new HashMap<>();
+        Map<Integer, List<Category>> categoriesMap =
         categories.stream()
                 .collect(Collectors.groupingBy(
                         c -> calculateDepth(c.getCategoryName())));
@@ -68,23 +69,27 @@ public class InMemoryCategoryDAO {
     private void populateParentId(Map<Integer, List<Category>> categoriesMap, int depth) {
         List<Category> children = categoriesMap.get(depth);
         children.stream()
-                .forEach(c -> {
-                    List<Category> potencialParents = categoriesMap.get(depth - 1);
-                    Integer parentId = potencialParents.stream()
-                            .map(Category::getId)
-                            .filter(id -> id < c.getId())
-                            .sorted((a, b) -> b - a)//sortujemy i odwracamy kolejnosc
-                            .findFirst()
-                            .orElse(null);
-                    c.setParentId(parentId);
-                });
+                .forEach(c -> findAndSetParentId(categoriesMap, depth, c));
         if (categoriesMap.containsKey(depth + 1)) {
             populateParentId(categoriesMap, depth + 1);
         }
     }
 
+    private void findAndSetParentId(Map<Integer, List<Category>> categoriesMap, int depth, Category c) {
+
+        List<Category> potencialParents = categoriesMap.get(depth - 1);
+
+        Integer parentId = potencialParents == null ? null : potencialParents.stream()
+                .map(Category::getId)
+                .filter(id -> id < c.getId())
+                .sorted((a, b) -> b - a)//sortujemy i odwracamy kolejnosc
+                .findFirst()
+                .orElse(null);
+        c.setParentId(parentId);
+    }
+
     private Integer calculateDepth(String categoryName) {
-        return categoryName.split("\\S+")[0].length();
+        return categoryName.startsWith(" ") ? categoryName.split("\\S+")[0].length() : 0;//operator warunkowy ? :
     }
 }
 
