@@ -17,6 +17,18 @@ public class InMemoryCategoryDAO {
 
     @Getter
     private List<Category> categoryList = new ArrayList<>();
+    private static InMemoryCategoryDAO instance;
+
+    public static InMemoryCategoryDAO getInstance() {
+        if (instance == null) {//1
+            synchronized (InMemoryCategoryDAO.class) {//2 (synchronize- taki blok semafor przepuszcz tylko jeden watek)
+                if (instance == null) {//3 (zeby tylko jeden watek mogl utworzyc obiekt)
+                    instance = new InMemoryCategoryDAO();
+                }
+            }
+        }
+        return instance;
+    }
 
     public InMemoryCategoryDAO() {
         initializeCategories();
@@ -48,9 +60,9 @@ public class InMemoryCategoryDAO {
                 .collect(Collectors.toList());
 
         Map<Integer, List<Category>> categoriesMap =
-        categories.stream()
-                .collect(Collectors.groupingBy(
-                        c -> calculateDepth(c.getCategoryName())));
+                categories.stream()
+                        .collect(Collectors.groupingBy(
+                                c -> calculateDepth(c.getCategoryName())));
 
       /*  for (Category category : categories) {
             Integer depth = calculateDepth(category.getCategoryName());
